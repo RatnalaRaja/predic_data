@@ -1,0 +1,240 @@
+Classification with Python
+#Load requred libraries:
+import itertools
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import NullFormatter
+import pandas as pd
+import numpy as np
+import matplotlib.ticker as ticker
+from sklearn import preprocessing
+%matplotlib inline
+
+#Load Data From CSV File
+df = pd.read_csv('https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-ML0101EN-SkillsNetwork/labs/Module%206/cbb.csv')
+df.head()
+
+#Add Column
+df['windex'] = np.where(df.WAB > 7, 'True', 'False')
+
+#Data visualization and pre-processing
+df1 = df.loc[df['POSTSEASON'].str.contains('F4|S16|E8', na=False)]
+df1.head()
+
+# notice: installing seaborn might takes a few minutes
+!conda install -c anaconda seaborn -y
+
+import seaborn as sns
+
+bins = np.linspace(df1.BARTHAG.min(), df1.BARTHAG.max(), 10)
+g = sns.FacetGrid(df1, col="windex", hue="POSTSEASON", palette="Set1", col_wrap=6)
+g.map(plt.hist, 'BARTHAG', bins=bins, ec="k")
+
+g.axes[-1].legend()
+plt.show()
+
+
+bins = np.linspace(df1.ADJOE.min(), df1.ADJOE.max(), 10)
+g = sns.FacetGrid(df1, col="windex", hue="POSTSEASON", palette="Set1", col_wrap=2)
+g.map(plt.hist, 'ADJOE', bins=bins, ec="k")
+
+g.axes[-1].legend()
+plt.show()
+
+bins = np.linspace(df1.ADJDE.min(), df1.ADJDE.max(), 10)
+g = sns.FacetGrid(df1, col="windex", hue="POSTSEASON", palette="Set1", col_wrap=2)
+g.map(plt.hist, 'ADJDE', bins=bins, ec="k")
+g.axes[-1].legend()
+plt.show()
+
+#Convert categorical into numerical
+df1.groupby(['windex'])['POSTSEASON'].value_counts(normalize=True)
+
+#Feature selection
+X = df1[['G', 'W', 'ADJOE', 'ADJDE', 'BARTHAG', 'EFG_O', 'EFG_D',
+       'TOR', 'TORD', 'ORB', 'DRB', 'FTR', 'FTRD', '2P_O', '2P_D', '3P_O',
+       '3P_D', 'ADJ_T', 'WAB', 'SEED', 'windex']]
+X[0:5]
+
+#Normalize data
+X= preprocessing.StandardScaler().fit(X).transform(X)
+X[0:5]
+
+#Split the data into Training and Validation data.
+# We split the X into train and test to find the best k
+from sklearn.model_selection import train_test_split
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=4)
+print ('Train set:', X_train.shape,  y_train.shape)
+print ('Validation set:', X_val.shape,  y_val.shape)
+
+#Classification
+#KNN
+#Question 1: Build a KNN model using a value of k equals five, find the accuracy on the validation data (X_val and y_val)
+from sklearn.metrics import accuracy_score
+from sklearn.neighbors import KNeighborsClassifier
+
+k = 5
+#Train Model and Predict  
+neigh = KNeighborsClassifier(n_neighbors = k).fit(X_train,y_train)
+neigh
+
+#Predicting
+yhat = neigh.predict(X_val)
+yhat[0:5]
+
+#Accuracy evaluation
+from sklearn import metrics
+print("Train set Accuracy: ", metrics.accuracy_score(y_train, neigh.predict(X_train)))
+print("Validation set Accuracy: ", metrics.accuracy_score(y_val, yhat))
+
+
+#Question 2 Determine and print the accuracy for the first 15 values of k on the validation data:
+#Trying to determine the accuracy for the first 15 values of k on the validation data
+Ks = 16
+mean_acc = np.zeros((Ks-1))
+std_acc = np.zeros((Ks-1))
+
+for n in range(1,Ks):
+    
+    #Train Model and Predict  
+    neigh = KNeighborsClassifier(n_neighbors = n).fit(X_train,y_train)
+    yhat2=neigh.predict(X_val)
+    mean_acc[n-1] = metrics.accuracy_score(y_val, yhat2)
+
+    
+    std_acc[n-1]=np.std(yhat2==y_val)/np.sqrt(yhat2.shape[0])
+
+mean_acc
+
+#Plotting the model accuracy for a different number of neighbors.
+plt.plot(range(1,Ks),mean_acc,'g')
+plt.fill_between(range(1,Ks),mean_acc - 1 * std_acc,mean_acc + 1 * std_acc, alpha=0.10)
+plt.fill_between(range(1,Ks),mean_acc - 3 * std_acc,mean_acc + 3 * std_acc, alpha=0.10,color="green")
+plt.legend(('Accuracy ', '+/- 1xstd','+/- 3xstd'))
+plt.ylabel('Accuracy ')
+plt.xlabel('Number of Neighbors (K)')
+plt.tight_layout()
+plt.show()
+
+#print( "The best accuracy was with", mean_acc.max(), "with k=", mean_acc.argmax()+1)
+
+#Decision Tree
+from sklearn.tree import DecisionTreeClassifier
+#Question 3 Determine the minumum value for the parameter max_depth that improves results
+
+# Print the shape of X_trainset and y_trainset. Ensure that the dimensions match
+print('Shape of X training set {}'.format(X_train.shape),'&',' Size of Y training set {}'.format(y_train.shape))
+
+Ks = 20
+
+mean_acc2 = np.zeros((Ks-1))
+
+for n in range(1,Ks):
+    #Modelling
+    BBTree = DecisionTreeClassifier(criterion="entropy", max_depth = n)
+    BBTree # it shows the default parameters
+    
+    #it the data with the training feature matrix X_train and training vector y_train
+    BBTree.fit(X_train,y_train)
+    
+    #Prediction
+    predTree = BBTree.predict(X_val)
+    
+    #Evaluation
+    from sklearn import metrics
+    import matplotlib.pyplot as plt
+    print("DecisionTrees's Accuracy: ", metrics.accuracy_score(y_val, predTree))
+    
+    
+    #Modelling
+    BBTree = DecisionTreeClassifier(criterion="entropy", max_depth = 4)
+    BBTree # it shows the default parameters
+    
+    #it the data with the training feature matrix X_train and training vector y_train
+    BBTree.fit(X_train,y_train)
+    
+    #Prediction
+    predTree = BBTree.predict(X_val)
+    
+    #Evaluation
+    mean_acc2[n-1] = metrics.accuracy_score(y_val, predTree)
+
+mean_acc
+print( "The best accuracy was with", mean_acc2.max(), "with max_depth=", mean_acc.argmax()+1)
+
+
+#Support Vector Machine
+#Question 4 Train the support vector machine model and determine the accuracy on the validation data for each kernel. Find the kernel (linear, poly, rbf, sigmoid) that provides the best score on the validation data and train a SVM using it.
+
+from sklearn import svm
+
+#Trying RBF kernel
+clf = svm.SVC(kernel='rbf')
+clf.fit(X_train, y_train) 
+
+yhat3 = clf.predict(X_val)
+yhat3 [0:5]
+
+#Evaluation
+from sklearn.metrics import classification_report, confusion_matrix
+import itertools
+
+'''def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    
+# Compute confusion matrix
+cnf_matrix = confusion_matrix(y_val, yhat3, labels=[2,4])
+np.set_printoptions(precision=2)
+
+print (classification_report(y_val, yhat3))
+
+# Plot non-normalized confusion matrix
+plt.figure()
+plot_confusion_matrix(cnf_matrix, classes=['Benign(2)','Malignant(4)'],normalize= False,  title='Confusion matrix')
+'''
+#Calculate F1 score
+from sklearn.metrics import f1_score
+f1_score(y_val, yhat3, average='micro') 
+
+#Calculate Jaccard index
+from sklearn.metrics import jaccard_score
+jaccard_score(y_val, yhat3,pos_label=2)
+
+#Repeat steps about with different kernels: linear, poly, sigmoid
+#Linear
+clf2 = svm.SVC(kernel='linear')
+clf2.fit(X_train, y_train) 
+yhat4 = clf2.predict(X_val)
+print("Avg F1-score: %.4f" % f1_score(y_val, yhat4, average='micro'))
+print("Jaccard score: %.4f" % jaccard_score(y_val, yhat4,pos_label=2)
